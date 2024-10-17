@@ -1,5 +1,5 @@
 // client.cpp
-// 聊天程序客户端实现，支持连接服务器、发送和接收消息
+// 聊天程序客户端实现，支持连接服务器、发送和接收消息，并添加私聊功能
 
 #include <iostream>
 #include <string>
@@ -47,18 +47,27 @@ int main() {
 
     std::cout << "已成功连接到服务器" << std::endl;
 
-    // 启动接收消息的线程
-    std::thread(receive_messages, client_socket).detach();
-
-    // 发送消息
+    // 输入用户名并注册到服务器
     std::string sender;
     std::cout << "请输入您的用户名: ";
     std::getline(std::cin, sender);
 
+    // 发送用户名注册消息到服务器
+    ChatMessage register_msg;
+    register_msg.type = CONNECT;
+    register_msg.sender = sender;
+    register_msg.receiver = "server";
+    register_msg.content = "注册用户名";
+    send(client_socket, register_msg.encode().c_str(), register_msg.encode().length(), 0);
+
+    // 启动接收消息的线程
+    std::thread(receive_messages, client_socket).detach();
+
+    // 发送消息
     while (true) {
         std::string content;
         std::getline(std::cin, content);
-        if (content == "/exit") {
+        if (content == "exit") {
             ChatMessage msg;
             msg.type = DISCONNECT;
             msg.sender = sender;
@@ -69,10 +78,25 @@ int main() {
         }
 
         ChatMessage msg;
-        msg.type = BROADCAST;
-        msg.sender = sender;
-        msg.receiver = "ALL";
-        msg.content = content;
+        if (content.rfind("/msg ", 0) == 0) {
+            // 私聊消息，格式为 /msg <接收者> <消息>
+            size_t first_space = content.find(' ', 5);
+            if (first_space != std::string::npos) {
+                msg.type = PRIVATE;
+                msg.sender = sender;
+                msg.receiver = content.substr(5, first_space - 5);
+                msg.content = content.substr(first_space + 1);
+            } else {
+                std::cout << "私聊消息格式错误，应为: /msg <接收者> <消息>" << std::endl;
+                continue;
+            }
+        } else {
+            // 群聊消息
+            msg.type = BROADCAST;
+            msg.sender = sender;
+            msg.receiver = "ALL";
+            msg.content = content;
+        }
         send(client_socket, msg.encode().c_str(), msg.encode().length(), 0);
     }
 

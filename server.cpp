@@ -1,5 +1,5 @@
 // server.cpp
-// 聊天程序服务器端实现，支持多人连接和群聊功能
+// 聊天程序服务器端实现，支持多人连接和群聊功能，并添加私聊功能
 
 #include <iostream>
 #include <string>
@@ -39,7 +39,11 @@ void handle_client(int client_socket) {
 
         // 处理不同类型的消息
         clients_mutex.lock();
-        if (msg.type == BROADCAST) {
+        if (msg.type == CONNECT) {
+            // 注册用户名
+            clients[client_socket] = msg.sender;
+            std::cout << "新客户端注册: " << msg.sender << std::endl;
+        } else if (msg.type == BROADCAST) {
             // 群聊消息，广播给所有客户端
             for (const auto &client : clients) {
                 if (client.first != client_socket) {
@@ -48,11 +52,23 @@ void handle_client(int client_socket) {
             }
         } else if (msg.type == PRIVATE) {
             // 私聊消息，发送给特定接收者
+            bool recipient_found = false;
             for (const auto &client : clients) {
                 if (client.second == msg.receiver) {
                     send(client.first, buffer, bytes_received, 0);
+                    recipient_found = true;
                     break;
                 }
+            }
+            if (!recipient_found) {
+                // 如果找不到接收者，向发送者返回错误消息
+                ChatMessage error_msg;
+                error_msg.type = SERVER_NOTICE;
+                error_msg.sender = "server";
+                error_msg.receiver = msg.sender;
+                error_msg.content = "接收者不存在: " + msg.receiver;
+                std::string encoded_msg = error_msg.encode();
+                send(client_socket, encoded_msg.c_str(), encoded_msg.length(), 0);
             }
         }
         clients_mutex.unlock();
@@ -92,13 +108,12 @@ int main() {
             continue;
         }
 
-        // 获取客户端IP地址
-        std::string client_ip = inet_ntoa(client_addr.sin_addr);
+        // 先将客户端套接字加入到映射中，稍后由 CONNECT 消息注册用户名
         clients_mutex.lock();
-        clients[client_socket] = client_ip;
+        clients[client_socket] = "未知用户";
         clients_mutex.unlock();
 
-        std::cout << "新客户端连接: " << client_ip << std::endl;
+        std::cout << "新客户端连接: " << inet_ntoa(client_addr.sin_addr) << std::endl;
 
         // 创建新线程处理客户端
         std::thread(handle_client, client_socket).detach();

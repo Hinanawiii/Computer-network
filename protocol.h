@@ -12,7 +12,7 @@ enum MessageType {
     CONNECT = 0,        // 连接消息
     DISCONNECT = 1,     // 断开连接消息
     BROADCAST = 2,      // 群聊消息
-    PRIVATE = 3,        // 私聊消息
+    PRIVATE = 3,        // 私聊消息，但是实现起来有bug
     SERVER_NOTICE = 4   // 服务器通知
 };
 
