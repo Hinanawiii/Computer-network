@@ -1,11 +1,12 @@
 // server.cpp
-// 聊天程序服务器端实现，支持多人连接和群聊功能，并添加私聊功能
+// 聊天程序服务器端实现，支持多人连接和群聊功能，并添加私聊功能，并确保每个用户名是唯一的
 
 #include <iostream>
 #include <string>
 #include <thread>
 #include <vector>
 #include <map>
+#include <set>
 #include <mutex>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -16,6 +17,7 @@
 #define MAX_CLIENTS 100
 
 std::map<int, std::string> clients; // 客户端套接字到用户名的映射
+std::set<std::string> usernames;    // 已注册的用户名集合
 std::mutex clients_mutex;
 
 // 处理客户端消息的函数
@@ -26,7 +28,9 @@ void handle_client(int client_socket) {
         if (bytes_received <= 0) {
             // 客户端断开连接
             clients_mutex.lock();
-            std::cout << clients[client_socket] << " 已断开连接" << std::endl;
+            std::string username = clients[client_socket];
+            std::cout << username << " 已断开连接" << std::endl;
+            usernames.erase(username);
             clients.erase(client_socket);
             clients_mutex.unlock();
             close(client_socket);
@@ -40,9 +44,29 @@ void handle_client(int client_socket) {
         // 处理不同类型的消息
         clients_mutex.lock();
         if (msg.type == CONNECT) {
-            // 注册用户名
-            clients[client_socket] = msg.sender;
-            std::cout << "新客户端注册: " << msg.sender << std::endl;
+            // 检查用户名是否已存在
+            if (usernames.find(msg.sender) != usernames.end()) {
+                // 用户名已存在，发送错误消息
+                ChatMessage error_msg;
+                error_msg.type = SERVER_NOTICE;
+                error_msg.sender = "server";
+                error_msg.receiver = msg.sender;
+                error_msg.content = "用户名已存在，请选择其他用户名";
+                std::string encoded_msg = error_msg.encode();
+                send(client_socket, encoded_msg.c_str(), encoded_msg.length(), 0);
+            } else {
+                // 注册用户名
+                clients[client_socket] = msg.sender;
+                usernames.insert(msg.sender);
+                std::cout << "新客户端注册: " << msg.sender << std::endl;
+                ChatMessage success_msg;
+                success_msg.type = SERVER_NOTICE;
+                success_msg.sender = "server";
+                success_msg.receiver = msg.sender;
+                success_msg.content = "注册成功";
+                std::string encoded_msg = success_msg.encode();
+                send(client_socket, encoded_msg.c_str(), encoded_msg.length(), 0);
+            }
         } else if (msg.type == BROADCAST) {
             // 群聊消息，广播给所有客户端
             for (const auto &client : clients) {
