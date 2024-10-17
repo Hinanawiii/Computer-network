@@ -58,7 +58,7 @@ int main() {
     while (true) {
         std::string content;
         std::getline(std::cin, content);
-        if (content == "exit") {
+        if (content == "/exit") {
             ChatMessage msg;
             msg.type = DISCONNECT;
             msg.sender = sender;
