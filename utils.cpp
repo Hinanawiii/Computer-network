@@ -3,8 +3,11 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+
+using namespace std;
+
 void initialize_socket_library() {
-    // 在Linux系统中不需要做任何事情，Windows系统中可以使用WSAStartup
+    // 在Linux系统中不需要做任何事情，Windows系统中要使用WSAStartup,但是windows库又不一样，太麻烦了,所以我删掉了
 }
 
 int create_server_socket(int port) {
@@ -34,10 +37,10 @@ int create_server_socket(int port) {
     return server_socket;
 }
 
-void print_socket_error(const std::string &message) {
+void print_socket_error(const string &message) {
     perror(message.c_str());
 }
 
-std::string get_client_ip(sockaddr_in &client_addr) {
-    return std::string(inet_ntoa(client_addr.sin_addr));
+string get_client_ip(sockaddr_in &client_addr) {
+    return string(inet_ntoa(client_addr.sin_addr));
 }

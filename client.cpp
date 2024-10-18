@@ -12,26 +12,28 @@
 #define SERVER_IP "127.0.0.1"
 #define PORT 12345
 
+using namespace std;
+
 // 接收消息的函数
 void receive_messages(int client_socket) {
     char buffer[1024];
     while (true) {
         int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
         if (bytes_received <= 0) {
-            std::cout << "服务器断开连接" << std::endl;
+            cout << "服务器断开连接" << endl;
             close(client_socket);
             break;
         }
         buffer[bytes_received] = '\0';
         ChatMessage msg = ChatMessage::decode(buffer);
-        std::cout << msg.sender << ": " << msg.content << std::endl;
+        cout << msg.sender << ": " << msg.content << endl;
     }
 }
 
 int main() {
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket == -1) {
-        std::cerr << "无法创建客户端套接字" << std::endl;
+        cerr << "无法创建客户端套接字" << endl;
         return -1;
     }
 
@@ -41,16 +43,16 @@ int main() {
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
 
     if (connect(client_socket, (sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
-        std::cerr << "无法连接到服务器" << std::endl;
+        cerr << "无法连接到服务器" << endl;
         return -1;
     }
 
-    std::cout << "已成功连接到服务器" << std::endl;
+    cout << "已成功连接到服务器" << endl;
 
     // 输入用户名并注册到服务器
-    std::string sender;
-    std::cout << "请输入您的用户名: ";
-    std::getline(std::cin, sender);
+    string sender;
+    cout << "请输入您的用户名: ";
+    getline(cin, sender);
 
     // 发送用户名注册消息到服务器
     ChatMessage register_msg;
@@ -61,12 +63,12 @@ int main() {
     send(client_socket, register_msg.encode().c_str(), register_msg.encode().length(), 0);
 
     // 启动接收消息的线程
-    std::thread(receive_messages, client_socket).detach();
+    thread(receive_messages, client_socket).detach();
 
     // 发送消息
     while (true) {
-        std::string content;
-        std::getline(std::cin, content);
+        string content;
+        getline(cin, content);
         if (content == "exit") {
             ChatMessage msg;
             msg.type = DISCONNECT;
@@ -79,15 +81,15 @@ int main() {
 
         ChatMessage msg;
         if (content.rfind("/msg ", 0) == 0) {
-            // 私聊消息，格式为 /msg <接收者> <消息>
+            // 私聊消息，格式为 /msg <接收者> <消息>（都带空格）
             size_t first_space = content.find(' ', 5);
-            if (first_space != std::string::npos) {
+            if (first_space != string::npos) {
                 msg.type = PRIVATE;
                 msg.sender = sender;
                 msg.receiver = content.substr(5, first_space - 5);
                 msg.content = content.substr(first_space + 1);
             } else {
-                std::cout << "私聊消息格式错误，应为: /msg <接收者> <消息>" << std::endl;
+                cout << "私聊消息格式错误，应为: /msg <接收者> <消息>" << endl;
                 continue;
             }
         } else {

@@ -16,9 +16,11 @@
 #define PORT 12345
 #define MAX_CLIENTS 100
 
-std::map<int, std::string> clients; // 客户端套接字到用户名的映射
-std::set<std::string> usernames;    // 已注册的用户名集合
-std::mutex clients_mutex;
+using namespace std;
+
+map<int, string> clients; // 客户端套接字到用户名的映射
+set<string> usernames;    // 已注册的用户名集合
+mutex clients_mutex;
 
 // 处理客户端消息的函数
 void handle_client(int client_socket) {
@@ -28,8 +30,8 @@ void handle_client(int client_socket) {
         if (bytes_received <= 0) {
             // 客户端断开连接
             clients_mutex.lock();
-            std::string username = clients[client_socket];
-            std::cout << username << " 已断开连接" << std::endl;
+            string username = clients[client_socket];
+            cout << username << " 已断开连接" << endl;
             usernames.erase(username);
             clients.erase(client_socket);
             clients_mutex.unlock();
@@ -52,19 +54,19 @@ void handle_client(int client_socket) {
                 error_msg.sender = "server";
                 error_msg.receiver = msg.sender;
                 error_msg.content = "用户名已存在，请选择其他用户名";
-                std::string encoded_msg = error_msg.encode();
+                string encoded_msg = error_msg.encode();
                 send(client_socket, encoded_msg.c_str(), encoded_msg.length(), 0);
             } else {
                 // 注册用户名
                 clients[client_socket] = msg.sender;
                 usernames.insert(msg.sender);
-                std::cout << "新客户端注册: " << msg.sender << std::endl;
+                cout << "新客户端注册: " << msg.sender << endl;
                 ChatMessage success_msg;
                 success_msg.type = SERVER_NOTICE;
                 success_msg.sender = "server";
                 success_msg.receiver = msg.sender;
                 success_msg.content = "注册成功";
-                std::string encoded_msg = success_msg.encode();
+                string encoded_msg = success_msg.encode();
                 send(client_socket, encoded_msg.c_str(), encoded_msg.length(), 0);
             }
         } else if (msg.type == BROADCAST) {
@@ -91,7 +93,7 @@ void handle_client(int client_socket) {
                 error_msg.sender = "server";
                 error_msg.receiver = msg.sender;
                 error_msg.content = "接收者不存在: " + msg.receiver;
-                std::string encoded_msg = error_msg.encode();
+                string encoded_msg = error_msg.encode();
                 send(client_socket, encoded_msg.c_str(), encoded_msg.length(), 0);
             }
         }
@@ -102,7 +104,7 @@ void handle_client(int client_socket) {
 int main() {
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == -1) {
-        std::cerr << "无法创建服务器套接字" << std::endl;
+        cerr << "无法创建服务器套接字" << endl;
         return -1;
     }
 
@@ -110,37 +112,38 @@ int main() {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = INADDR_ANY;
+    //配置服务器地址
 
     if (bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
-        std::cerr << "绑定失败" << std::endl;
+        cerr << "绑定失败" << endl;
         return -1;
     }
 
     if (listen(server_socket, MAX_CLIENTS) == -1) {
-        std::cerr << "监听失败" << std::endl;
+        cerr << "监听失败" << endl;
         return -1;
     }
 
-    std::cout << "服务器正在监听端口 " << PORT << " ..." << std::endl;
+    cout << "服务器正在监听端口 " << PORT << " ..." << endl;
 
     while (true) {
         sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
         if (client_socket == -1) {
-            std::cerr << "无法接受客户端连接" << std::endl;
+            cerr << "无法接受客户端连接" << endl;
             continue;
         }
 
-        // 先将客户端套接字加入到映射中，稍后由 CONNECT 消息注册用户名
+        // 先套接字，后由 CONNECT 注册用户名
         clients_mutex.lock();
         clients[client_socket] = "未知用户";
         clients_mutex.unlock();
 
-        std::cout << "新客户端连接: " << inet_ntoa(client_addr.sin_addr) << std::endl;
+        cout << "新客户端连接: " << inet_ntoa(client_addr.sin_addr) << endl;
 
         // 创建新线程处理客户端
-        std::thread(handle_client, client_socket).detach();
+        thread(handle_client, client_socket).detach();
     }
 
     close(server_socket);
